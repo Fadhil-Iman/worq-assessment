@@ -15,7 +15,7 @@ This project is a REST API for booking meeting rooms, built with **NestJS** and 
 Clone the repository and install dependencies:
 ```bash
 git clone https://github.com/Fadhil-Iman/worq-assessment.git
-cd meeting-room-booking
+cd worq-assessment
 npm install
 ```
 
