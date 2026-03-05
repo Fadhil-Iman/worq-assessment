@@ -10,12 +10,11 @@ This project is a REST API for booking meeting rooms, built with **NestJS** and 
 ### Prerequisites
 - Node.js 20+
 - npm
-- Postman (optional, for manual testing)
 
 ### Installation
 Clone the repository and install dependencies:
 ```bash
-git clone https://github.com/your-username/meeting-room-booking.git
+git clone https://github.com/Fadhil-Iman/worq-assessment.git
 cd meeting-room-booking
 npm install
 ```
@@ -24,9 +23,6 @@ npm install
 ```bash
 # Development mode (with hot reload)
 npm run start:dev
-
-# Production mode
-npm run start:prod
 ```
 
 Access the **Swagger UI** at [http://localhost:3000/api](http://localhost:3000/api)
@@ -69,9 +65,6 @@ Access the **Swagger UI** at [http://localhost:3000/api](http://localhost:3000/a
    - Unit tests for all core booking logic including conflict detection edge cases. ✓
    - Unit tests for webhook dispatch and retry behaviour. ✓
 
-6. **Version Control**
-   - Git repository hosted on GitHub. ✓
-
 ---
 
 ## API Reference
@@ -83,8 +76,8 @@ Access the **Swagger UI** at [http://localhost:3000/api](http://localhost:3000/a
 curl -s -X POST http://localhost:3000/bookings \
   -H "Content-Type: application/json" \
   -d '{
-    "roomName": "Boardroom",
-    "memberName": "Alice",
+    "roomName": "Room",
+    "memberName": "Fadhil",
     "startTime": "2025-06-01T09:00:00Z",
     "endTime":   "2025-06-01T10:00:00Z"
   }'
@@ -168,50 +161,6 @@ After 3 failed attempts the error is logged and the webhook is skipped. Dispatch
 
 ---
 
-## End-to-End Test Walkthrough
-
-The following sequence exercises every endpoint, the conflict rejection, webhook firing, and the 404 path:
-
-```bash
-# 1. Create a booking
-BOOKING=$(curl -s -X POST http://localhost:3000/bookings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "roomName": "Boardroom",
-    "memberName": "Alice",
-    "startTime": "2025-06-01T09:00:00Z",
-    "endTime": "2025-06-01T10:00:00Z"
-  }')
-echo $BOOKING
-
-# 2. Try to double-book the same slot → expect 400
-curl -s -X POST http://localhost:3000/bookings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "roomName": "Boardroom",
-    "memberName": "Bob",
-    "startTime": "2025-06-01T09:30:00Z",
-    "endTime": "2025-06-01T10:30:00Z"
-  }'
-
-# 3. List all bookings
-curl -s http://localhost:3000/bookings
-
-# 4. Register a webhook
-curl -s -X POST http://localhost:3000/webhooks \
-  -H "Content-Type: application/json" \
-  -d '{ "url": "https://webhook.site/your-unique-id" }'
-
-# 5. Cancel the booking — webhook fires automatically
-ID=$(echo $BOOKING | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-curl -s -X DELETE http://localhost:3000/bookings/$ID
-
-# 6. Try to cancel again → expect 404
-curl -s -X DELETE http://localhost:3000/bookings/$ID
-```
-
----
-
 ## Run Tests
 
 ```bash
@@ -221,43 +170,6 @@ npm run test
 # Unit tests with coverage report
 npm run test -- --coverage
 ```
-
-### Test Coverage
-
-| File | What's tested |
-|---|---|
-| `bookings.service.spec.ts` | Create, all conflict edge cases, findAll ordering, cancel, webhook dispatch |
-| `webhooks.service.spec.ts` | Register, dispatch to multiple URLs, payload shape, retry count, no-op when empty |
-
----
-
-## Project Structure
-
-```
-src/
-├── main.ts                          # Bootstrap + global ValidationPipe + Swagger
-├── app.module.ts
-├── bookings/
-│   ├── booking.entity.ts
-│   ├── bookings.controller.ts
-│   ├── bookings.module.ts
-│   ├── bookings.service.ts
-│   ├── bookings.service.spec.ts
-│   └── dto/
-│       └── create-booking.dto.ts
-└── webhooks/
-    ├── webhook.entity.ts
-    ├── webhooks.controller.ts
-    ├── webhooks.module.ts
-    ├── webhooks.service.ts
-    ├── webhooks.service.spec.ts
-    └── dto/
-        └── register-webhook.dto.ts
-```
-
----
-
-## Design Decisions
 
 - **Conflict detection** uses strict interval overlap (`startTime < b.endTime && endTime > b.startTime`), allowing back-to-back bookings while correctly rejecting all partial and full overlaps.
 - **Webhook dispatch** is fire-and-forget — callers always receive an immediate response regardless of webhook health.
