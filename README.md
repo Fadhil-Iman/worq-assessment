@@ -1,98 +1,264 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Meeting Room Booking API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Overview
+This project is a REST API for booking meeting rooms, built with **NestJS** and **TypeScript**. It supports room conflict detection, webhook notifications with retry logic, and is fully documented with Swagger UI.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Setup
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### Prerequisites
+- Node.js 20+
+- npm
+- Postman (optional, for manual testing)
 
-## Project setup
-
+### Installation
+Clone the repository and install dependencies:
 ```bash
-$ npm install
+git clone https://github.com/your-username/meeting-room-booking.git
+cd meeting-room-booking
+npm install
 ```
 
-## Compile and run the project
-
+### Launch the Application
 ```bash
-# development
-$ npm run start
+# Development mode (with hot reload)
+npm run start:dev
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# Production mode
+npm run start:prod
 ```
 
-## Run tests
+Access the **Swagger UI** at [http://localhost:3000/api](http://localhost:3000/api)
 
+---
+
+## Requirements
+
+1. **REST API Design**
+   - RESTful API with JSON request/response format.
+   - **Example Response** — `GET /bookings`:
+     ```json
+     [
+       {
+         "id": "e3d2c1b0-...",
+         "roomName": "Boardroom",
+         "memberName": "Alice",
+         "startTime": "2025-06-01T09:00:00.000Z",
+         "endTime": "2025-06-01T10:00:00.000Z",
+         "createdAt": "2025-05-20T08:00:00.000Z"
+       }
+     ]
+     ```
+
+2. **Conflict Detection**
+   - Bookings are rejected if the requested room is already taken for the given time slot. ✓
+   - Back-to-back bookings (e.g. 09:00–10:00 then 10:00–11:00) are allowed. ✓
+
+3. **Webhook Notifications**
+   - Register external URLs via `POST /webhooks`. ✓
+   - A `POST` notification is sent to all registered URLs whenever a booking is created or cancelled. ✓
+   - Failed webhook calls are retried up to **3 times** with exponential back-off. ✓
+
+4. **API Documentation**
+   - Integrated with **Swagger UI** via `@nestjs/swagger`. ✓
+   - Access the interactive docs at [http://localhost:3000/api](http://localhost:3000/api)
+   - You can also test via **Postman** using the endpoint reference below.
+
+5. **Unit Testing**
+   - Unit tests for all core booking logic including conflict detection edge cases. ✓
+   - Unit tests for webhook dispatch and retry behaviour. ✓
+
+6. **Version Control**
+   - Git repository hosted on GitHub. ✓
+
+---
+
+## API Reference
+
+### Bookings
+
+#### `POST /bookings` — Create a booking
 ```bash
-# unit tests
-$ npm run test
+curl -s -X POST http://localhost:3000/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "roomName": "Boardroom",
+    "memberName": "Alice",
+    "startTime": "2025-06-01T09:00:00Z",
+    "endTime":   "2025-06-01T10:00:00Z"
+  }'
+```
+- **201** — Booking created successfully.
+- **400** — Room already booked for that slot, or invalid date range.
 
-# e2e tests
-$ npm run test:e2e
+---
 
-# test coverage
-$ npm run test:cov
+#### `GET /bookings` — List all bookings
+```bash
+curl -s http://localhost:3000/bookings
+```
+Returns all bookings sorted by `startTime` ascending.
+
+---
+
+#### `DELETE /bookings/:id` — Cancel a booking
+```bash
+curl -s -X DELETE http://localhost:3000/bookings/<id>
+```
+- **200** — Returns the cancelled booking.
+- **404** — Booking not found.
+
+---
+
+### Webhooks
+
+#### `POST /webhooks` — Register a webhook URL
+```bash
+curl -s -X POST http://localhost:3000/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{ "url": "https://webhook.site/your-unique-id" }'
+```
+> **Tip:** Use [webhook.site](https://webhook.site) to get a free test URL that displays incoming requests in real time.
+
+- **201** — Webhook registered successfully.
+- **400** — Invalid URL.
+
+---
+
+#### `GET /webhooks` — List registered webhooks
+```bash
+curl -s http://localhost:3000/webhooks
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+### Webhook Payload
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Every registered URL receives a `POST` with the following shape on booking events:
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```json
+{
+  "event": "booking.created",
+  "timestamp": "2025-05-20T09:00:00.000Z",
+  "data": {
+    "id": "e3d2c1b0-...",
+    "roomName": "Boardroom",
+    "memberName": "Alice",
+    "startTime": "2025-06-01T09:00:00.000Z",
+    "endTime":   "2025-06-01T10:00:00.000Z",
+    "createdAt": "2025-05-20T08:00:00.000Z"
+  }
+}
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+**`event`** is one of `booking.created` | `booking.cancelled`.
 
-## Resources
+---
 
-Check out a few resources that may come in handy when working with NestJS:
+### Retry Strategy
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+| Attempt | Delay before retry |
+|---|---|
+| 1 (initial) | — |
+| 2 | 500 ms |
+| 3 | 1 000 ms |
 
-## Support
+After 3 failed attempts the error is logged and the webhook is skipped. Dispatch is **non-blocking** — failures never affect the API response.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+---
 
-## Stay in touch
+## End-to-End Test Walkthrough
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+The following sequence exercises every endpoint, the conflict rejection, webhook firing, and the 404 path:
 
-## License
+```bash
+# 1. Create a booking
+BOOKING=$(curl -s -X POST http://localhost:3000/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "roomName": "Boardroom",
+    "memberName": "Alice",
+    "startTime": "2025-06-01T09:00:00Z",
+    "endTime": "2025-06-01T10:00:00Z"
+  }')
+echo $BOOKING
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# 2. Try to double-book the same slot → expect 400
+curl -s -X POST http://localhost:3000/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "roomName": "Boardroom",
+    "memberName": "Bob",
+    "startTime": "2025-06-01T09:30:00Z",
+    "endTime": "2025-06-01T10:30:00Z"
+  }'
+
+# 3. List all bookings
+curl -s http://localhost:3000/bookings
+
+# 4. Register a webhook
+curl -s -X POST http://localhost:3000/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{ "url": "https://webhook.site/your-unique-id" }'
+
+# 5. Cancel the booking — webhook fires automatically
+ID=$(echo $BOOKING | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+curl -s -X DELETE http://localhost:3000/bookings/$ID
+
+# 6. Try to cancel again → expect 404
+curl -s -X DELETE http://localhost:3000/bookings/$ID
+```
+
+---
+
+## Run Tests
+
+```bash
+# Unit tests
+npm run test
+
+# Unit tests with coverage report
+npm run test -- --coverage
+```
+
+### Test Coverage
+
+| File | What's tested |
+|---|---|
+| `bookings.service.spec.ts` | Create, all conflict edge cases, findAll ordering, cancel, webhook dispatch |
+| `webhooks.service.spec.ts` | Register, dispatch to multiple URLs, payload shape, retry count, no-op when empty |
+
+---
+
+## Project Structure
+
+```
+src/
+├── main.ts                          # Bootstrap + global ValidationPipe + Swagger
+├── app.module.ts
+├── bookings/
+│   ├── booking.entity.ts
+│   ├── bookings.controller.ts
+│   ├── bookings.module.ts
+│   ├── bookings.service.ts
+│   ├── bookings.service.spec.ts
+│   └── dto/
+│       └── create-booking.dto.ts
+└── webhooks/
+    ├── webhook.entity.ts
+    ├── webhooks.controller.ts
+    ├── webhooks.module.ts
+    ├── webhooks.service.ts
+    ├── webhooks.service.spec.ts
+    └── dto/
+        └── register-webhook.dto.ts
+```
+
+---
+
+## Design Decisions
+
+- **Conflict detection** uses strict interval overlap (`startTime < b.endTime && endTime > b.startTime`), allowing back-to-back bookings while correctly rejecting all partial and full overlaps.
+- **Webhook dispatch** is fire-and-forget — callers always receive an immediate response regardless of webhook health.
+- **In-memory storage** uses `Map<string, T>` keyed by UUID. To migrate to a database, replace the `Map` operations in each service with TypeORM repository calls — controllers, DTOs, and module wiring remain unchanged.
