@@ -33,6 +33,7 @@ export class BookingsController {
    * Return all bookings sorted by start time.
    */
   @Get()
+  @ApiOperation({ summary: 'List all bookings' })
   findAll() {
     return this.bookingsService.findAll();
   }
